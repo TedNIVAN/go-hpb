@@ -93,7 +93,7 @@ func Sender(signer Signer, tx *Transaction) (common.Address, error) {
 			return SigCache.Cafrom, nil
 		}
 	}
-	//log.Info("Sender hanxiaole 11111111111111111 send ","tx.hash",tx.Hash(),"signer.Hash(tx)",signer.Hash(tx))
+	//log.Info("Sender send ","tx.hash",tx.Hash(),"signer.Hash(tx)",signer.Hash(tx))
 	addr, err := signer.Sender(tx)
 	if err != nil {
 		return common.Address{}, err
@@ -103,19 +103,19 @@ func Sender(signer Signer, tx *Transaction) (common.Address, error) {
 }
 func ASynSender(signer Signer, tx *Transaction) (common.Address, error) {
 
-	//log.Info("hanxiaole tx.from.Load()","tx.Hash()",tx.Hash(),"signer.Hash(tx)",signer.Hash(tx))
+	//log.Info("tx.from.Load()","tx.Hash()",tx.Hash(),"signer.Hash(tx)",signer.Hash(tx))
 	if sc := tx.from.Load(); sc != nil {
 		SigCache := sc.(SigCache)
 		// If the signer used to derive from in a previous
 		// call is not the same as used current, invalidate
 		// the cache.2
 		if SigCache.Casigner.Equal(signer) {
-			//log.Info("hanxiaole test ASynSender reASyn tx.from.Load() OKOKOK ","SigCache.from",SigCache.Cafrom,"tx.Hash()",tx.Hash())
+			//log.Info("test ASynSender reASyn tx.from.Load() OKOKOK ","SigCache.from",SigCache.Cafrom,"tx.Hash()",tx.Hash())
 			return SigCache.Cafrom, nil
 		}
 	}
 
-	//log.Info("hanxiaole test SMapGet(Asynsinger,signer.Hash(tx))","signer.Hash(tx)",signer.Hash(tx),"tx.Hash()",tx.Hash())
+	//log.Info(" test SMapGet(Asynsinger,signer.Hash(tx))","signer.Hash(tx)",signer.Hash(tx),"tx.Hash()",tx.Hash())
 	/*
 	asynAddress ,err:= SMapGetAddress(Asynsinger,signer.Hash(tx))
 	if err == nil{
@@ -158,7 +158,8 @@ func ASynSender(signer Signer, tx *Transaction) (common.Address, error) {
 	if err != nil {
 		return common.Address{}, err
 	}
-	return addr, nil
+	//return addr, nil
+	return addr,errors.New("ASynSinger send ok go singer boe")
 }
 // Signer encapsulates transaction signature handling. Note that this interface is not a
 // stable API and may change at any time to accommodate new protocol rules.
@@ -213,16 +214,16 @@ func (s BoeSigner) Sender(tx *Transaction) (common.Address, error) {
 func (s BoeSigner) ASynSender(tx *Transaction) (common.Address, error) {
 	if !tx.Protected() {
 		//return HomesteadSigner{}.Sender(tx)
-		//log.Info("tx.Protected() hanxiaole test 111111111111111111")
+		//log.Info("tx.Protected()")
 		//TODO transaction can be unprotected ?
 	}
 	if tx.ChainId().Cmp(s.chainId) != 0 {
-		//log.Info("tx.Protected() hanxiaole test 2222222222222222222")
+		//log.Info("tx.Protected() ")
 		return common.Address{}, ErrInvalidChainId
 	}
 	V := new(big.Int).Sub(tx.data.V, s.chainIdMul)
 	V.Sub(V, big8)
-	//log.Info("BoeSigner ASynSender  ASynrecoverPlain hanxiaole test  send ","tx.hash",tx.Hash())
+	//log.Info("BoeSigner ASynSender  ASynrecoverPlain send ","tx.hash",tx.Hash())
 	return ASynrecoverPlain(s.Hash(tx), tx.data.R, tx.data.S, V)
 }
 // WithSignature returns a new transaction with the given signature. This signature
@@ -320,25 +321,25 @@ func recoverPlain(sighash common.Hash, R, S, Vb *big.Int) (common.Address, error
 func ASynrecoverPlain(sighash common.Hash, R, S, Vb *big.Int) (common.Address, error) {
 
 	if Vb.BitLen() > 8 {
-		//log.Info("ASynrecoverPlain Vb.BitLen() > 8 hanxiaole test 11111111111111")
+		//log.Info("ASynrecoverPlain Vb.BitLen() > 8 ")
 		return common.Address{}, ErrInvalidSig
 	}
 	V := byte(Vb.Uint64() - 27)
 	if !crypto.ValidateSignatureValues(V, R, S, true) {
-		//log.Info("ASynrecoverPlain !crypto.ValidateSignatureValues hanxiaole test 22222222222222222222")
+		//log.Info("ASynrecoverPlain !crypto.ValidateSignatureValues ")
 		return common.Address{}, ErrInvalidSig
 	}
 	r, s := R.Bytes(), S.Bytes()
 
-	//log.Info("ASynrecoverPlain hanxiaole test ","hash",sighash,"hash.bytes",sighash.Bytes(),"send hash",hex.EncodeToString(sighash.Bytes()))
+	//log.Info("ASynrecoverPlain ","hash",sighash,"hash.bytes",sighash.Bytes(),"send hash",hex.EncodeToString(sighash.Bytes()))
 
 	err := boe.BoeGetInstance().ASyncValidateSign(sighash.Bytes(), r, s, V)
 	if err != nil {
-		log.Info("boe validatesign error 3333333333333333333333333")
+		log.Info("boe validatesign error")
 		return common.Address{}, err
 	}
-	//log.Info("ASynrecoverPlain ASynrecoverPlain hanxiaole end 444444444444444444444444")
-	return common.Address{}, nil
+	//log.Info("ASynrecoverPlain ASynrecoverPlain ")
+	return common.Address{},errors.New("ASynrecoverPlain send ok go singer boe")
 }
 
 // deriveChainId derives the chain id from the given v parameter
@@ -375,7 +376,7 @@ func boecallback(rs boe.RecoverPubkey,err error) {
     if errSet !=nil{
     	log.Info("boecallback SMapSet error!")
 	}
-	log.Info("boe boecallback hanxiaole Store success","hash",comhash,"rs.hash",rs.Hash,"addr",addr)
+	log.Info("boe boecallback Store success","hash",comhash,"rs.hash",rs.Hash,"addr",addr)
 
 }
 */
@@ -390,7 +391,7 @@ func boecallback(rs boe.RecoverPubkey,err error) {
 //		return common.Address{},errors.New("SMapGetAddress hash values is null")
 //	}
 //
-//	//log.Info("hanxiaole test SMapGetAddress input hash and kvalue","khash",khash,"kvalue",kvalue)
+//	//log.Info(" test SMapGetAddress input hash and kvalue","khash",khash,"kvalue",kvalue)
 //	return kvalue,nil
 //}
 
@@ -403,7 +404,7 @@ func SMapGetTx(m *Smap, khash common.Hash) (*Transaction,error){
 		//log.Info("SMapGetTx hash values is null","m.WaitsingerTx[khash]",m.WaitsingerTx[khash])
 		return nil,errors.New("SMapGetTx hash values is null")
 	}
-	//log.Info("hanxiaole test SMapGetTx input hash and kvalue","khash",khash,"kvalue",kvalue)
+	//log.Info("SMapGetTx input hash and kvalue","khash",khash,"kvalue",kvalue)
 	return kvalue,nil
 }
 //
@@ -416,7 +417,7 @@ func SMapGetTx(m *Smap, khash common.Hash) (*Transaction,error){
 //		//log.Info("SMapGetSendFlag hash values is null","m.WaitsingerTxbeats[khash]",m.SendFlag[khash])
 //		return false,errors.New("SMapGetSendFlag hash values is null")
 //	}
-//	//log.Info("hanxiaole test SMapGetSendFlag input hash and kvalue","khash",khash,"kvalue",kvalue)
+//	//log.Info("SMapGetSendFlag input hash and kvalue","khash",khash,"kvalue",kvalue)
 //	return kvalue,nil
 //}
 /*
@@ -429,7 +430,7 @@ func SMapGetTxTime(m *Smap, khash common.Hash) (time.Time,error){
 		log.Info("SMapGetTxTime hash values is null","m.WaitsingerTxbeats[khash]",m.WaitsingerTxbeats[khash])
 		return time.Now(),errors.New("SMapGetTxTime hash values is null")
 	}
-	log.Info("hanxiaole test SMapGetTxTime input hash and kvalue","khash",khash,"kvalue",kvalue)
+	log.Info("SMapGetTxTime input hash and kvalue","khash",khash,"kvalue",kvalue)
 	return kvalue,nil
 }
 
@@ -442,7 +443,7 @@ func SMapGetChannelType(m *Smap, khash common.Hash) (int,error){
 		log.Info("SMapGetChannelType hash values is null","m.ChannelType[khash]",m.ChannelType[khash])
 		return 0,errors.New("SMapGetChannelType hash values is null")
 	}
-	log.Info("hanxiaole test SMapGetChannelType input hash and kvalue","khash",khash,"kvalue",kvalue)
+	log.Info("SMapGetChannelType input hash and kvalue","khash",khash,"kvalue",kvalue)
 	return kvalue,nil
 }
 */
@@ -454,7 +455,7 @@ func SMapGetChannelType(m *Smap, khash common.Hash) (int,error){
 //	if ok != true{
 //		return errors.New("SMapSetAddress hash values is null")
 //	}
-//	//log.Info("hanxiaole SMapSetAddress","SMapSetAddress from",fromAddress,"hash",khash)
+//	//log.Info("SMapSetAddress","SMapSetAddress from",fromAddress,"hash",khash)
 //	return nil
 //}
 //
@@ -466,7 +467,7 @@ func SMapSetWaitsingerTx(m *Smap, khash common.Hash,ptx *Transaction) error {
 	if ok != true{
 		return errors.New("SMapSetWaitsingerTx hash values is null")
 	}
-	//log.Info("hanxiaole SMapSetWaitsingerTx","SMapSetWaitsingerTx from Tx.Hash",fromTx.Hash())
+	//log.Info("SMapSetWaitsingerTx","SMapSetWaitsingerTx from Tx.Hash",fromTx.Hash())
 	return nil
 }
 //
@@ -478,7 +479,7 @@ func SMapSetWaitsingerTx(m *Smap, khash common.Hash,ptx *Transaction) error {
 //	if ok != true{
 //		return errors.New("SMapSetWaitsingerTxbeats hash values is null")
 //	}
-//	//log.Info("hanxiaole SMapSetWaitsingerTxbeats","WaitsingerTxbeats from",fromTime)
+//	//log.Info("SMapSetWaitsingerTxbeats","WaitsingerTxbeats from",fromTime)
 //	return nil
 //}
 //
@@ -490,7 +491,7 @@ func SMapSetWaitsingerTx(m *Smap, khash common.Hash,ptx *Transaction) error {
 //	if ok != true{
 //		return errors.New("SMapSetSendFlag hash values is null")
 //	}
-//	//log.Info("hanxiaole SMapSetSendFlag","SMapSetSendFlag from",fromFlag)
+//	//log.Info("SMapSetSendFlag","SMapSetSendFlag from",fromFlag)
 //	return nil
 //}
 
@@ -503,7 +504,7 @@ func SMapSetChannelType(m *Smap, khash common.Hash,channeltype int) error {
 	if ok != true{
 		return errors.New("SMapSetChannelType hash values is null")
 	}
-	log.Info("hanxiaole SMapSetChannelType","SMapSetChannelType footie", footie)
+	log.Info("SMapSetChannelType","SMapSetChannelType footie", footie)
 	return nil
 }
 */
