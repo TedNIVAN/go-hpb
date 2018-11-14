@@ -243,8 +243,9 @@ func (pool *TxPool) chanAsynSingerloop() {
 			delete(types.Asynsinger.Data, comhash)
 			delete(types.Asynsinger.SendFlag, comhash)
 			delete(types.Asynsinger.WaitsingerTxbeats, comhash) */
-			delete(types.Asynsinger.WaitsingerTx, comhash)
-
+			if types.Asynsinger.WaitsingerTx[comhash] != nil {
+				delete(types.Asynsinger.WaitsingerTx, comhash)
+			}
 			/*
 			err1 := pool.AsynAddTx(tx)
 			if err1 != nil{
