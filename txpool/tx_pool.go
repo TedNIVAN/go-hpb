@@ -245,14 +245,16 @@ func (pool *TxPool) chanAsynSingerloop() {
 			delete(types.Asynsinger.WaitsingerTxbeats, comhash) */
 			delete(types.Asynsinger.WaitsingerTx, comhash)
 
+			/*
 			err1 := pool.AsynAddTx(tx)
 			if err1 != nil{
 				log.Info("AsynAddTx(tx) fail","hash",comhash,"tx.hash",tx.Hash())
-				//pool.chantransuccess[tx.Hash()] <- 4         /*4 交易失败*/
+				//pool.chantransuccess[tx.Hash()] <- 4         ///*4 交易失败
 			}else{
 				log.Info("AsynAddTx(tx) success","hash",comhash,"tx.hash",tx.Hash())
-				//pool.chantransuccess[tx.Hash()] <- 6             /*6 交易成功*/
+				//pool.chantransuccess[tx.Hash()] <- 6            ///*6 交易成功
 			}
+			*/
 		}
 	}
 }
@@ -526,24 +528,6 @@ func (pool *TxPool) AddTx(tx *types.Transaction) error {
 	return nil
 }
 */
-// AsynAddTx attempts to queue a transactions if valid. old AddTx
-func (pool *TxPool) AsynAddTx(tx *types.Transaction) error {
-	pool.mu.Lock()
-	defer pool.mu.Unlock()
-
-	hash := tx.Hash()
-	if pool.all[hash] != nil {
-		log.Trace("Discarding already known transaction", "hash", hash)
-		return fmt.Errorf("known transaction: %x", hash)
-	}
-	// If the transaction fails basic validation, discard it
-	if err := pool.validateTx(tx); err != nil {
-		log.Trace("Discarding invalid transaction", "hash", hash, "err", err)
-		return err
-	}
-
-	return pool.addTxLocked(tx)
-}
 // AddTx attempts to queue a transactions if valid.
 func (pool *TxPool) AddTx(tx *types.Transaction) error {
 	pool.mu.Lock()
