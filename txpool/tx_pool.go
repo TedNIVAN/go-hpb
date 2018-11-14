@@ -535,7 +535,7 @@ func (pool *TxPool) AddTx(tx *types.Transaction) error {
 func (pool *TxPool) AddTx(tx *types.Transaction) error {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
-
+	var tStart = time.Now().UnixNano()/1000
 	hash := tx.Hash()
 	if pool.all[hash] != nil {
 		log.Trace("Discarding already known transaction", "hash", hash)
@@ -546,8 +546,15 @@ func (pool *TxPool) AddTx(tx *types.Transaction) error {
 		log.Trace("Discarding invalid transaction", "hash", hash, "err", err)
 		return err
 	}
+	re := pool.addTxLocked(tx)
+	tEnd := time.Now().UnixNano()/1000
+	if re != nil{
+		log.Info("addtx err"," ", tEnd-tStart)
+	}else {
+		log.Info("addtx success"," ", tEnd-tStart)
+	}
+	return re
 
-	return pool.addTxLocked(tx)
 }
 // addTxsLocked attempts to queue a batch of transactions if they are valid,
 // whilst assuming the transaction pool lock is already held.
