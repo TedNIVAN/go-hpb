@@ -437,8 +437,13 @@ func (pool *TxPool) validateTx(tx *types.Transaction) error {
 	// Call BOE recover sender.
 	from, err := types.ASynSender(pool.signer, tx)
 	if err != nil {
-		log.Info("validateTx ASynSender ErrInvalidSender", "ErrInvalidSender",ErrInvalidSender,"tx.hash",tx.Hash())
-		return ErrInvalidSender
+		log.Trace("validateTx ASynSender ErrInvalidSender", "ErrInvalidSender",ErrInvalidSender,"tx.hash",tx.Hash())
+		from2, err := types.Sender(pool.signer, tx) // already validated
+		if err != nil{
+			log.Info("addTxsLocked Sender Error","tx.bash",tx.Hash())
+			return ErrInvalidSender
+		}
+		copy(from[0:], from2[0:])
 	}
 
 	// Check gasPrice.
@@ -486,22 +491,17 @@ func (pool *TxPool) AddTxs(txs []*types.Transaction) error {
 
 	return pool.addTxsLocked(txs)
 }
-
+/*
 // AddTx attempts to queue a transactions if valid.
 func (pool *TxPool) AddTx(tx *types.Transaction) error {
-	//pool.mu.Lock()
-	//defer pool.mu.Unlock()
+
 	var t_start = time.Now().UnixNano()/1000
-
-
 	hash := tx.Hash()
 	if pool.all[hash] != nil {
 		log.Trace("Discarding already known transaction", "hash", hash)
 		return fmt.Errorf("known transaction: %x", hash)
 	}
-
 	var ch = make(chan int)
-
 	pool.chantransuccess[hash] = ch
 
 	from, err := types.ASynSender(pool.signer, tx)
@@ -509,7 +509,7 @@ func (pool *TxPool) AddTx(tx *types.Transaction) error {
 		log.Info("ASynSender Send SUCCESS", "from",from,"tx.hash",tx.Hash())
 		return err
 	}
-	/*等待此笔交易成功或失败的通知*/
+	///等待此笔交易成功或失败的通知
 	select {
 	// Handle ChainHeadEvent
 	case result := <-ch:
@@ -525,9 +525,27 @@ func (pool *TxPool) AddTx(tx *types.Transaction) error {
 	}
 	return nil
 }
-
-// AsynAddTx attempts to queue a transactions if valid.
+*/
+// AsynAddTx attempts to queue a transactions if valid. old AddTx
 func (pool *TxPool) AsynAddTx(tx *types.Transaction) error {
+	pool.mu.Lock()
+	defer pool.mu.Unlock()
+
+	hash := tx.Hash()
+	if pool.all[hash] != nil {
+		log.Trace("Discarding already known transaction", "hash", hash)
+		return fmt.Errorf("known transaction: %x", hash)
+	}
+	// If the transaction fails basic validation, discard it
+	if err := pool.validateTx(tx); err != nil {
+		log.Trace("Discarding invalid transaction", "hash", hash, "err", err)
+		return err
+	}
+
+	return pool.addTxLocked(tx)
+}
+// AddTx attempts to queue a transactions if valid.
+func (pool *TxPool) AddTx(tx *types.Transaction) error {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 
