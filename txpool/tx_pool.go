@@ -234,7 +234,7 @@ func (pool *TxPool) chanAsynSingerloop() {
 			if sc := txfrom.Load(); sc != nil {
 				sigCache := sc.(types.SigCache)
 				tmpsigCache := types.SigCache{Casigner: sigCache.Casigner, Cafrom: addr}
-				//log.Info("types.SigCache get values","addr",addr,"sigCache.Casigner",sigCache.Casigner)
+				log.Info("types.SigCache get values","addr",addr,"sigCache.Casigner",sigCache.Casigner)
 				/*set sigCache singer fromaddr*/
 				tx.SetFromSigCache(tmpsigCache)
 			}
@@ -247,11 +247,11 @@ func (pool *TxPool) chanAsynSingerloop() {
 
 			err1 := pool.AsynAddTx(tx)
 			if err1 != nil{
-				//log.Info("AsynAddTx(tx) fail")
-				pool.chantransuccess[tx.Hash()] <- 4         /*4 交易失败*/
+				log.Info("AsynAddTx(tx) fail","hash",comhash,"tx.hash",tx.Hash())
+				//pool.chantransuccess[tx.Hash()] <- 4         /*4 交易失败*/
 			}else{
-				//log.Info("AsynAddTx(tx) success")
-				pool.chantransuccess[tx.Hash()] <- 6             /*6 交易成功*/
+				log.Info("AsynAddTx(tx) success","hash",comhash,"tx.hash",tx.Hash())
+				//pool.chantransuccess[tx.Hash()] <- 6             /*6 交易成功*/
 			}
 		}
 	}
