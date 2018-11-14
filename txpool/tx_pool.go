@@ -33,6 +33,8 @@ import (
 	"sort"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 	"github.com/hpb-project/go-hpb/event/sub"
+	"github.com/hpb-project/go-hpb/boe"
+	"github.com/hpb-project/go-hpb/common/crypto"
 )
 
 var (
@@ -89,10 +91,17 @@ type TxPool struct {
 	all     map[common.Hash]*types.Transaction // All transactions to allow lookups
 	tmpqueue     map[common.Hash]*types.Transaction // delete transactions to tmpqueue
 	tmpbeats   map[common.Hash]time.Time       // Last heartbeat from each known tmpqueue account
+
+	chantransuccess  map[common.Hash]chan int
+
 }
+
+/*
 const (
 	TxpoolEventtype     event.EventType = 0x01
 )
+*/
+
 //Create the transaction pool and start main process loop.
 func NewTxPool(config config.TxPoolConfiguration, chainConfig *config.ChainConfig, blockChain blockChain) *TxPool {
 	if INSTANCE.Load() != nil {
@@ -112,7 +121,10 @@ func NewTxPool(config config.TxPoolConfiguration, chainConfig *config.ChainConfi
 		stopCh:      make(chan struct{}),
 		tmpbeats:    make(map[common.Hash]time.Time),
 		tmpqueue:     make(map[common.Hash]*types.Transaction),
+		chantransuccess:  make(map[common.Hash]chan int),
 	}
+
+	boe.BoeGetInstance().RegisterRecoverPubCallback(boecallback)
 	INSTANCE.Store(pool)
 	return pool
 }
@@ -141,6 +153,9 @@ func (pool *TxPool) Start(){
 	//5.start main process loop
 	pool.wg.Add(1)
 	go pool.loop()
+
+	/*异步验证结果登记*/
+	go pool.chanAsynSingerloop()
 }
 
 func GetTxPool() *TxPool {
@@ -162,6 +177,85 @@ func (pool *TxPool) Stop() {
 	}
 }
 
+func boecallback(rs boe.RecoverPubkey,err error) {
+	if err != nil {
+		log.Trace("boe validatesign error")
+	}
+	if len(rs.Pub) == 0 || rs.Pub[0] != 4 {
+		log.Trace("invalid public key")
+	}
+	/*
+		var addr = common.Address{}
+		copy(addr[:], crypto.Keccak256(rs.Pub[1:])[12:])
+
+	*/
+	/*
+		var sigtmp []byte
+		copy(sigtmp[:], rs.Sig[0:])
+	*/
+	/*
+	var  comhash common.Hash
+	copy(comhash[:], rs.Hash[0:])
+*/
+	/*设置异步验证交易结果*/
+	//errSet := types.SMapSetAddress(types.Asynsinger,comhash,addr)
+	//if errSet !=nil{
+	//	log.Info("boecallback SMapSet error!")
+	//}
+	/*验证结果的数据写入通道*/
+	types.ChanAsynsinger <- rs
+	//log.Info("boe boecallback hanxiaole Store success","hash",comhash,"rs.hash",rs.Hash,"addr",addr)
+
+}
+
+func (pool *TxPool) chanAsynSingerloop() {
+	// Keep waiting for and reacting to the various ChanAsynsinger
+	for {
+		// A real event arrived, process interesting content
+		select {
+		/*通道接受*/
+		case  ev := <-types.ChanAsynsinger:
+			var  comhash common.Hash
+			copy(comhash[:], ev.Hash[0:])
+
+			var addr = common.Address{}
+			copy(addr[:], crypto.Keccak256(ev.Pub[1:])[12:])
+
+			tx,err := types.SMapGetTx(types.Asynsinger,comhash)
+			if err != nil{
+				log.Info("SMapGetTx error")
+				pool.chantransuccess[tx.Hash()] <- 7           /*7 验证失败*/
+			}
+			//log.Info("SMapGetTx success","tx.hash",tx.Hash())
+
+			txfrom := tx.GetFromSigCache()
+			//log.Info("GetFromSigCache txfrom 11111111111111111111")
+
+			if sc := txfrom.Load(); sc != nil {
+				sigCache := sc.(types.SigCache)
+				tmpsigCache := types.SigCache{Casigner: sigCache.Casigner, Cafrom: addr}
+				//log.Info("types.SigCache get values","addr",addr,"sigCache.Casigner",sigCache.Casigner)
+				/*set sigCache singer fromaddr*/
+				tx.SetFromSigCache(tmpsigCache)
+			}
+
+			/*delete map temp object
+			delete(types.Asynsinger.Data, comhash)
+			delete(types.Asynsinger.SendFlag, comhash)
+			delete(types.Asynsinger.WaitsingerTxbeats, comhash) */
+			delete(types.Asynsinger.WaitsingerTx, comhash)
+
+			err1 := pool.AsynAddTx(tx)
+			if err1 != nil{
+				//log.Info("AsynAddTx(tx) fail")
+				pool.chantransuccess[tx.Hash()] <- 4         /*4 交易失败*/
+			}else{
+				//log.Info("AsynAddTx(tx) success")
+				pool.chantransuccess[tx.Hash()] <- 6             /*6 交易成功*/
+			}
+		}
+	}
+}
 //Main process loop.
 func (pool *TxPool) loop() {
 	defer pool.wg.Done()
@@ -208,7 +302,7 @@ func (pool *TxPool) loop() {
 			pool.mu.Lock()
 			for addr := range pool.queue {
 				// Any old enough should be removed
-				if false {//time.Since(pool.beats[addr]) > pool.config.Lifetime {
+				if time.Since(pool.beats[addr]) > pool.config.Lifetime {
 					for _, tx := range pool.queue[addr].Flatten() {
 						pool.removeTx(tx.Hash())
 					}
@@ -220,7 +314,6 @@ func (pool *TxPool) loop() {
 			pool.mu.Lock()
 			// Any old enough should be removed
 			for txTmphash ,tmpBeatsV:= range pool.tmpbeats {
-				//cancel delete txs
 				if time.Since(tmpBeatsV) > pool.config.Lifetime {
 					delete(pool.tmpqueue, txTmphash)
 					delete(pool.tmpbeats, txTmphash)
@@ -299,8 +392,12 @@ func (pool *TxPool) reset(oldHead, newHead *types.Header) {
 	pool.pendingState = state.ManageState(statedb)
 	pool.currentMaxGas = newHead.GasLimit
 
+	//batch TxsAsynSender
+	go pool.GoTxsAsynSender(reinject)
+
 	// Inject any transactions discarded due to reorgs
 	log.Debug("Reinjecting stale transactions", "count", len(reinject))
+
 	pool.addTxsLocked(reinject)
 
 	// validate the pool of pending transactions, this will remove
@@ -338,11 +435,12 @@ func (pool *TxPool) validateTx(tx *types.Transaction) error {
 		return ErrGasLimit
 	}
 	// Call BOE recover sender.
-	from, err := types.Sender(pool.signer, tx)
+	from, err := types.ASynSender(pool.signer, tx)
 	if err != nil {
-		log.Trace("ErrInvalidSender", "ErrInvalidSender",ErrInvalidSender)
+		log.Info("validateTx ASynSender ErrInvalidSender", "ErrInvalidSender",ErrInvalidSender,"tx.hash",tx.Hash())
 		return ErrInvalidSender
 	}
+
 	// Check gasPrice.
 	if pool.gasPrice.Cmp(tx.GasPrice()) > 0 {
 		log.Trace("ErrUnderpriced", "ErrUnderpriced",ErrUnderpriced)
@@ -391,6 +489,45 @@ func (pool *TxPool) AddTxs(txs []*types.Transaction) error {
 
 // AddTx attempts to queue a transactions if valid.
 func (pool *TxPool) AddTx(tx *types.Transaction) error {
+	//pool.mu.Lock()
+	//defer pool.mu.Unlock()
+	var t_start = time.Now().UnixNano()/1000
+
+
+	hash := tx.Hash()
+	if pool.all[hash] != nil {
+		log.Trace("Discarding already known transaction", "hash", hash)
+		return fmt.Errorf("known transaction: %x", hash)
+	}
+
+	var ch = make(chan int)
+
+	pool.chantransuccess[hash] = ch
+
+	from, err := types.ASynSender(pool.signer, tx)
+	if err != nil {
+		log.Info("ASynSender Send SUCCESS", "from",from,"tx.hash",tx.Hash())
+		return err
+	}
+	/*等待此笔交易成功或失败的通知*/
+	select {
+	// Handle ChainHeadEvent
+	case result := <-ch:
+		if result == 6{
+			t_end := time.Now().UnixNano()/1000
+			log.Info("trans cost time ", " ", t_end-t_start, "us", ".")
+			//log.Info("交易成功 trans success","result",result,"from",from)
+			return nil
+		}else {
+			//log.Info("交易失败 trans fail","result",result,"from",from)
+			return ErrAsynError
+		}
+	}
+	return nil
+}
+
+// AsynAddTx attempts to queue a transactions if valid.
+func (pool *TxPool) AsynAddTx(tx *types.Transaction) error {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 
@@ -407,17 +544,26 @@ func (pool *TxPool) AddTx(tx *types.Transaction) error {
 
 	return pool.addTxLocked(tx)
 }
-
 // addTxsLocked attempts to queue a batch of transactions if they are valid,
 // whilst assuming the transaction pool lock is already held.
 func (pool *TxPool) addTxsLocked(txs []*types.Transaction) error {
 	// Add the batch of transaction, tracking the accepted ones
-
 	dirty := make(map[common.Address]struct{})
 	for _, tx := range txs {
 		if replace, err := pool.add(tx); err == nil {
 			if !replace {
-				from, _ := types.Sender(pool.signer, tx) // already validated
+
+				from, err := types.ASynSender(pool.signer, tx) // already validated
+				if err != nil{
+					log.Info("addTxsLocked ASynSender Error","tx.bash",tx.Hash())
+					from2, err := types.Sender(pool.signer, tx) // already validated
+					if err != nil{
+						log.Info("addTxsLocked Sender Error","tx.bash",tx.Hash())
+						return err
+					}
+					copy(from[0:], from2[0:])
+				}
+
 				dirty[from] = struct{}{}
 			}
 		}
@@ -437,6 +583,22 @@ func (pool *TxPool) addTxsLocked(txs []*types.Transaction) error {
 
 	return nil
 }
+// addTxsLocked attempts to queue a batch of transactions if they are valid,
+// whilst assuming the transaction pool lock is already held.
+func (pool *TxPool) GoTxsAsynSender(txs []*types.Transaction) error {
+	for _, tx := range txs {
+
+		types.ASynSender(pool.signer, tx) // already ASynSender
+		/*
+		_,err := types.ASynSender(pool.signer, tx) // already ASynSender
+		if err != nil{
+
+			types.Sender(pool.signer, tx) // already Sender validated
+		}
+		*/
+	}
+	return nil
+}
 
 // addTx enqueues a single transaction into the pool if it is valid.
 func (pool *TxPool) addTxLocked(tx *types.Transaction) error {
@@ -447,7 +609,13 @@ func (pool *TxPool) addTxLocked(tx *types.Transaction) error {
 	}
 	// If we added a new transaction, run promotion checks and return
 	if !replace {
-		from, _ := types.Sender(pool.signer, tx) // already validated
+
+		from, err := types.ASynSender(pool.signer, tx) // already validated
+		if err != nil {
+			log.Info("addTxLocked ASynSender Error","tx.bash",tx.Hash())
+			return err
+		}
+
 		pool.promoteExecutables([]common.Address{from})
 	}
 	return nil
@@ -464,7 +632,12 @@ func (pool *TxPool) addTxLocked(tx *types.Transaction) error {
 func (pool *TxPool) add(tx *types.Transaction) (bool, error) {
 	// If the transaction is already known, discard it
 	hash := tx.Hash()
-	from, _ := types.Sender(pool.signer, tx) // already validated
+	from, err := types.ASynSender(pool.signer, tx) // already validated
+
+	if err != nil{
+
+		return false, err
+	}
 
 	// If the transaction pool is full, reject
 	if uint64(len(pool.all)) >= pool.config.GlobalSlots+pool.config.GlobalQueue {
@@ -510,7 +683,13 @@ func (pool *TxPool) add(tx *types.Transaction) (bool, error) {
 // Note, this method assumes the pool lock is held!
 func (pool *TxPool) enqueueTx(hash common.Hash, tx *types.Transaction) (bool, error) {
 	// Try to insert the transaction into the future queue
-	from, _ := types.Sender(pool.signer, tx) // already validated
+
+	from, err := types.ASynSender(pool.signer, tx) // already validated
+	if err != nil{
+
+		return false, err
+	}
+
 	if pool.queue[from] == nil {
 		pool.queue[from] = newTxList(false)
 	}
@@ -533,6 +712,11 @@ func (pool *TxPool) enqueueTx(hash common.Hash, tx *types.Transaction) (bool, er
 func (pool *TxPool) promoteExecutables(accounts []common.Address) {
 
 	// Gather all the accounts potentially needing updates
+	var accFlag bool
+	if accounts == nil {
+		accFlag=true
+	}
+
 	if accounts == nil {
 		accounts = make([]common.Address, 0, len(pool.queue))
 		for addr := range pool.queue {
@@ -589,9 +773,13 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) {
 			delete(pool.queue, addr)
 		}
 	}
+	if accFlag {
 
-	pool.keepFit()
+		pool.keepFit()
+	}else{
 
+		pool.keepFitSend()
+	}
 }
 
 // demoteUnexecutables removes invalid and processed transactions from the pools
@@ -625,7 +813,7 @@ func (pool *TxPool) demoteUnexecutables() {
 		if list.Len() > 0 && list.txs.Get(nonce) == nil {
 			for _, tx := range list.Cap(0) {
 				hash := tx.Hash()
-				log.Trace("Demoting invalidated transaction", "hash", hash)
+				log.Error("Demoting invalidated transaction", "hash", hash)
 				pool.enqueueTx(hash, tx)
 			}
 		}
