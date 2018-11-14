@@ -234,7 +234,7 @@ func (pool *TxPool) chanAsynSingerloop() {
 			if sc := txfrom.Load(); sc != nil {
 				sigCache := sc.(types.SigCache)
 				tmpsigCache := types.SigCache{Casigner: sigCache.Casigner, Cafrom: addr}
-				log.Info("types.SigCache get values","addr",addr,"sigCache.Casigner",sigCache.Casigner)
+				log.Info("types.SigCache SetFromSigCache values","addr",addr,"sigCache.Casigner",sigCache.Casigner,"singer.hash",comhash,"tx.hash",tx.Hash())
 				/*set sigCache singer fromaddr*/
 				tx.SetFromSigCache(tmpsigCache)
 			}
@@ -243,9 +243,11 @@ func (pool *TxPool) chanAsynSingerloop() {
 			delete(types.Asynsinger.Data, comhash)
 			delete(types.Asynsinger.SendFlag, comhash)
 			delete(types.Asynsinger.WaitsingerTxbeats, comhash) */
+			/*
 			if types.Asynsinger.WaitsingerTx[comhash] != nil {
 				delete(types.Asynsinger.WaitsingerTx, comhash)
 			}
+			*/
 			/*
 			err1 := pool.AsynAddTx(tx)
 			if err1 != nil{

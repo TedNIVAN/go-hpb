@@ -28,6 +28,7 @@ import (
 	"github.com/hpb-project/go-hpb/boe"
 	"github.com/hpb-project/go-hpb/common/log"
 	"sync"
+	"encoding/hex"
 )
 
 var (
@@ -90,10 +91,11 @@ func Sender(signer Signer, tx *Transaction) (common.Address, error) {
 		// call is not the same as used current, invalidate
 		// the cache.2
 		if SigCache.Casigner.Equal(signer) {
+			log.Info("Sender get OKOKOKOK ","tx.hash",tx.Hash(),"signer.Hash(tx)",signer.Hash(tx))
 			return SigCache.Cafrom, nil
 		}
 	}
-	//log.Info("Sender send ","tx.hash",tx.Hash(),"signer.Hash(tx)",signer.Hash(tx))
+	log.Info("Sender send ","tx.hash",tx.Hash(),"signer.Hash(tx)",signer.Hash(tx))
 	addr, err := signer.Sender(tx)
 	if err != nil {
 		return common.Address{}, err
@@ -110,7 +112,7 @@ func ASynSender(signer Signer, tx *Transaction) (common.Address, error) {
 		// call is not the same as used current, invalidate
 		// the cache.2
 		if SigCache.Casigner.Equal(signer) {
-			//log.Info("test ASynSender reASyn tx.from.Load() OKOKOK ","SigCache.from",SigCache.Cafrom,"tx.Hash()",tx.Hash())
+			log.Info("test ASynSender reASyn tx.from.Load() get OKOKOK ","SigCache.from",SigCache.Cafrom,"tx.Hash()",tx.Hash())
 			return SigCache.Cafrom, nil
 		}
 	}
@@ -331,14 +333,14 @@ func ASynrecoverPlain(sighash common.Hash, R, S, Vb *big.Int) (common.Address, e
 	}
 	r, s := R.Bytes(), S.Bytes()
 
-	//log.Info("ASynrecoverPlain ","hash",sighash,"hash.bytes",sighash.Bytes(),"send hash",hex.EncodeToString(sighash.Bytes()))
+	log.Info("ASynrecoverPlain ","hash",sighash,"hash.bytes",sighash.Bytes(),"send hash",hex.EncodeToString(sighash.Bytes()))
 
 	err := boe.BoeGetInstance().ASyncValidateSign(sighash.Bytes(), r, s, V)
 	if err != nil {
 		log.Info("boe validatesign error")
 		return common.Address{}, err
 	}
-	//log.Info("ASynrecoverPlain ASynrecoverPlain ")
+	log.Info("ASynrecoverPlain ok")
 	return common.Address{},errors.New("ASynrecoverPlain send ok go singer boe")
 }
 
