@@ -224,7 +224,7 @@ func (pool *TxPool) chanAsynSingerloop() {
 			tx,err := types.SMapGetTx(types.Asynsinger,comhash)
 			if err != nil{
 				log.Info("SMapGetTx error")
-				pool.chantransuccess[tx.Hash()] <- 7           /*7 验证失败*/
+				//pool.chantransuccess[tx.Hash()] <- 7           /*7 验证失败*/
 			}
 			//log.Info("SMapGetTx success","tx.hash",tx.Hash())
 
