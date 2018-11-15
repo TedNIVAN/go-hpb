@@ -116,13 +116,6 @@ func Sender(signer Signer, tx *Transaction) (common.Address, error) {
 	//if (tx.from.Load() != nil && reflect.TypeOf(tx.from.Load()) == reflect.TypeOf(common.Address{}) && tx.from.Load().(common.Address) != common.Address{}) {
 	//	return tx.from.Load().(common.Address), nil
 	//}
-	asynAddress, err := SMapGet(Asynsinger, signer.Hash(tx))
-	if err == nil {
-		ifindSynSender += 1
-		log.Debug("SenderFunc find ASynSenderCache OK","common.Address",asynAddress,"signer.Hash(tx)",signer.Hash(tx),"tx.hash",tx.Hash())
-		tx.from.Store(sigCache{signer: signer, from: asynAddress})
-		return asynAddress, nil
-	}
 	if sc := tx.from.Load(); sc != nil {
 		sigCache := sc.(sigCache)
 		// If the signer used to derive from in a previous
@@ -130,8 +123,19 @@ func Sender(signer Signer, tx *Transaction) (common.Address, error) {
 		// the cache.2
 		if sigCache.signer.Equal(signer) {
 			log.Info("Sender get Cache address ok","tx.hash",tx.Hash(),"signer.Hash(tx)",signer.Hash(tx))
+			errSet := SMapSet(Asynsinger,signer.Hash(tx),sigCache.from)
+			if errSet !=nil{
+				log.Info("boecallback SMapSet error!")
+			}
 			return sigCache.from, nil
 		}
+	}
+	asynAddress, err := SMapGet(Asynsinger, signer.Hash(tx))
+	if err == nil {
+		ifindSynSender += 1
+		log.Debug("SenderFunc find ASynSenderCache OK","common.Address",asynAddress,"signer.Hash(tx)",signer.Hash(tx),"tx.hash",tx.Hash())
+		tx.from.Store(sigCache{signer: signer, from: asynAddress})
+		return asynAddress, nil
 	}
 	iSender += 1
 
@@ -145,13 +149,6 @@ func Sender(signer Signer, tx *Transaction) (common.Address, error) {
 }
 func ASynSender(signer Signer, tx *Transaction) (common.Address, error) {
 
-	asynAddress ,err:= SMapGet(Asynsinger,signer.Hash(tx))
-	if err == nil{
-		log.Debug("ASynSender SMapGet OK","common.Address",asynAddress,"signer.Hash(tx)",signer.Hash(tx),"tx.hash",tx.Hash())
-		tx.from.Store(sigCache{signer: signer, from: asynAddress})
-		return asynAddress, nil
-	}
-
 	if sc := tx.from.Load(); sc != nil {
 		sigCache := sc.(sigCache)
 		if sigCache.signer.Equal(signer) {
@@ -160,6 +157,12 @@ func ASynSender(signer Signer, tx *Transaction) (common.Address, error) {
 		}
 	}
 
+	asynAddress ,err:= SMapGet(Asynsinger,signer.Hash(tx))
+	if err == nil{
+		log.Debug("ASynSender SMapGet OK","common.Address",asynAddress,"signer.Hash(tx)",signer.Hash(tx),"tx.hash",tx.Hash())
+		tx.from.Store(sigCache{signer: signer, from: asynAddress})
+		return asynAddress, nil
+	}
 	addr, err := signer.ASynSender(tx)
 	if err != nil {
 		return common.Address{}, err

@@ -344,7 +344,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction) error {
 
 	from, err := types.ASynSender(pool.signer, tx)
 	if err != nil {
-		log.Info("validateTx ASynSender ErrInvalid", "ErrInvalidSender",ErrInvalidSender,"tx.hash",tx.Hash())
+		log.Debug("validateTx ASynSender ErrInvalid", "ErrInvalidSender",ErrInvalidSender,"tx.hash",tx.Hash())
 		from2, err := types.Sender(pool.signer, tx)
 
 		if err != nil {
@@ -404,7 +404,7 @@ func (pool *TxPool) AddTxs(txs []*types.Transaction) error {
 func (pool *TxPool) AddTx(tx *types.Transaction) error {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
-
+	var t_start = time.Now().UnixNano()/1000
 	hash := tx.Hash()
 	if pool.all[hash] != nil {
 		log.Trace("Discarding already known transaction", "hash", hash)
@@ -415,8 +415,14 @@ func (pool *TxPool) AddTx(tx *types.Transaction) error {
 		log.Trace("Discarding invalid transaction", "hash", hash, "err", err)
 		return err
 	}
-
-	return pool.addTxLocked(tx)
+	t_end := time.Now().UnixNano()/1000
+	recerr := pool.addTxLocked(tx)
+	if recerr != nil {
+		log.Info("AddTx err","cost",t_end - t_start)
+		return recerr
+	}
+	log.Info("AddTx success","cost",t_end - t_start)
+	return nil
 }
 
 // addTxsLocked attempts to queue a batch of transactions if they are valid,
