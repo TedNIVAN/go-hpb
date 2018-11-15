@@ -418,10 +418,10 @@ func (pool *TxPool) AddTx(tx *types.Transaction) error {
 	t_end := time.Now().UnixNano()/1000
 	recerr := pool.addTxLocked(tx)
 	if recerr != nil {
-		log.Info("AddTx err","cost",t_end - t_start)
+		log.Debug("AddTx err","cost",t_end - t_start)
 		return recerr
 	}
-	log.Info("AddTx success","cost",t_end - t_start)
+	log.Debug("AddTx success","cost",t_end - t_start)
 	return nil
 }
 

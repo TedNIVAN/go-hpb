@@ -161,6 +161,7 @@ func ASynSender(signer Signer, tx *Transaction) (common.Address, error) {
 	if err == nil{
 		log.Debug("ASynSender SMapGet OK","common.Address",asynAddress,"signer.Hash(tx)",signer.Hash(tx),"tx.hash",tx.Hash())
 		tx.from.Store(sigCache{signer: signer, from: asynAddress})
+		delete(Asynsinger.Data,signer.Hash(tx)) //清除Asynsinger.Data[signer.Hash(tx)]
 		return asynAddress, nil
 	}
 	addr, err := signer.ASynSender(tx)
