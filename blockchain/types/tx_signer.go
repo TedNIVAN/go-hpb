@@ -69,10 +69,10 @@ func SMapGet(m *Smap, khash common.Hash) (common.Address,error){
 
 	kvalue,ok := m.Data[khash]
 	if ok != true {
-		log.Error("SMapGet hash values is null error","m.Data[khash]",m.Data[khash])
+		log.Debug("SMapGet hash values is null error","m.Data[khash]",m.Data[khash])
 		return common.Address{},errors.New("SMapGet hash values is null")
 	}
-	log.Info(" SMapGet OK","khash",khash,"kvalue",kvalue)
+	log.Debug(" SMapGet OK","khash",khash,"kvalue",kvalue)
 	return kvalue,nil
 }
 
@@ -86,7 +86,7 @@ func SMapSet(m *Smap, khash common.Hash,kaddress common.Address) error {
 		log.Error("SMapSet hash values is null error","from",from)
 		return errors.New("SMapSet hash values is null")
 	}
-	log.Info("SMapSet ok","SMapSet from",from)
+	log.Debug("SMapSet ok","SMapSet from",from)
 	return nil
 }
 
@@ -119,7 +119,7 @@ func Sender(signer Signer, tx *Transaction) (common.Address, error) {
 	asynAddress, err := SMapGet(Asynsinger, signer.Hash(tx))
 	if err == nil {
 		ifindSynSender += 1
-		log.Info("SenderFunc find ASynSenderCache OK","common.Address",asynAddress,"signer.Hash(tx)",signer.Hash(tx),"tx.hash",tx.Hash())
+		log.Debug("SenderFunc find ASynSenderCache OK","common.Address",asynAddress,"signer.Hash(tx)",signer.Hash(tx),"tx.hash",tx.Hash())
 		tx.from.Store(sigCache{signer: signer, from: asynAddress})
 		return asynAddress, nil
 	}
@@ -342,7 +342,7 @@ func ASynrecoverPlain(sighash common.Hash, R, S, Vb *big.Int) (common.Address, e
 		log.Error("boe validatesign error")
 		return common.Address{}, err
 	}
-	log.Info("ASynrecoverPlain Send to BOE OK","sighash",sighash)
+	log.Debug("ASynrecoverPlain Send to BOE OK","sighash",sighash)
 	return common.Address{}, ErrInvalidAsynsinger
 }
 
@@ -377,6 +377,6 @@ func boecallback(rs boe.RecoverPubkey,err error) {
 	if errSet !=nil{
 		log.Info("boecallback SMapSet error!")
 	}
-	log.Info("boecallback boe rec singer data success","comhash",comhash,"rs.hash",rs.Hash,"addr",addr)
+	log.Debug("boecallback boe rec singer data success","comhash",comhash,"rs.hash",rs.Hash,"addr",addr)
 
 }
