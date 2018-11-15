@@ -122,7 +122,7 @@ func Sender(signer Signer, tx *Transaction) (common.Address, error) {
 		// call is not the same as used current, invalidate
 		// the cache.2
 		if sigCache.signer.Equal(signer) {
-			log.Info("Sender get Cache address ok","tx.hash",tx.Hash(),"signer.Hash(tx)",signer.Hash(tx))
+			log.Debug("Sender get Cache address ok","tx.hash",tx.Hash(),"signer.Hash(tx)",signer.Hash(tx))
 			errSet := SMapSet(Asynsinger,signer.Hash(tx),sigCache.from)
 			if errSet !=nil{
 				log.Info("boecallback SMapSet error!")
@@ -152,7 +152,7 @@ func ASynSender(signer Signer, tx *Transaction) (common.Address, error) {
 	if sc := tx.from.Load(); sc != nil {
 		sigCache := sc.(sigCache)
 		if sigCache.signer.Equal(signer) {
-			log.Info("ASynSender Cache get OK","sigCache.from",sigCache.from,"tx.Hash()",tx.Hash())
+			log.Debug("ASynSender Cache get OK","sigCache.from",sigCache.from,"tx.Hash()",tx.Hash())
 			return sigCache.from, nil
 		}
 	}
