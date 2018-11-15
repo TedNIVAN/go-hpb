@@ -140,14 +140,14 @@ func Sender(signer Signer, tx *Transaction) (common.Address, error) {
 		return common.Address{}, err
 	}
 	tx.from.Store(sigCache{signer: signer, from: addr})
-	log.Info("Sender send ok","tx.hash",tx.Hash(),"signer.Hash(tx)",signer.Hash(tx))
+	log.Debug("Sender send ok","tx.hash",tx.Hash(),"signer.Hash(tx)",signer.Hash(tx))
 	return addr, nil
 }
 func ASynSender(signer Signer, tx *Transaction) (common.Address, error) {
 
 	asynAddress ,err:= SMapGet(Asynsinger,signer.Hash(tx))
 	if err == nil{
-		log.Info("ASynSender SMapGet OK","common.Address",asynAddress,"signer.Hash(tx)",signer.Hash(tx),"tx.hash",tx.Hash())
+		log.Debug("ASynSender SMapGet OK","common.Address",asynAddress,"signer.Hash(tx)",signer.Hash(tx),"tx.hash",tx.Hash())
 		tx.from.Store(sigCache{signer: signer, from: asynAddress})
 		return asynAddress, nil
 	}
