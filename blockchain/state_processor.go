@@ -17,17 +17,19 @@
 package bc
 
 import (
+	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/hpb-project/go-hpb/blockchain/state"
 	"github.com/hpb-project/go-hpb/blockchain/types"
 	"github.com/hpb-project/go-hpb/common"
-	"github.com/hpb-project/go-hpb/common/log"
 	"github.com/hpb-project/go-hpb/common/crypto"
+	"github.com/hpb-project/go-hpb/common/log"
 	"github.com/hpb-project/go-hpb/config"
 	"github.com/hpb-project/go-hpb/consensus"
-	"github.com/hpb-project/go-hpb/hvm/evm"
 	"github.com/hpb-project/go-hpb/hvm"
+	"github.com/hpb-project/go-hpb/hvm/evm"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -60,29 +62,39 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB) (ty
 	var (
 		receipts     types.Receipts
 		receipt      *types.Receipt
-		errs 		 error
+		errs         error
 		totalUsedGas = big.NewInt(0)
 		header       = block.Header()
 		allLogs      []*types.Log
 		gp           = new(GasPool).AddGas(block.GasLimit())
-
 	)
+
+	fmt.Println("---222------len txs:", len(block.Transactions()))
+	now := time.Now().UnixNano()
+	types.InitSenderCount()
+	go func(txs []*types.Transaction) {
+		synsigner := types.MakeSigner(p.config)
+		//types.ASynSender(synsigner, nil)
+		for _, tx := range txs {
+			types.ASynSender(synsigner, tx)
+		}
+	}(block.Transactions())
 
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
 		msg, err := tx.AsMessage(types.MakeSigner(p.config))
 		if err != nil {
-			return nil, nil,nil, err
+			return nil, nil, nil, err
 		}
 		//the tx without contract
 		if len(msg.Data()) != 0 {
-			receipt, _, errs = ApplyTransaction(p.config, p.bc,nil, gp, statedb, header, tx, totalUsedGas)
+			receipt, _, errs = ApplyTransaction(p.config, p.bc, nil, gp, statedb, header, tx, totalUsedGas)
 			if errs != nil {
 				return nil, nil, nil, errs
 			}
-		}else {
-			receipt, _, errs = ApplyTransactionNonContract(p.config, p.bc,nil, gp, statedb, header, tx, totalUsedGas)
+		} else {
+			receipt, _, errs = ApplyTransactionNonContract(p.config, p.bc, nil, gp, statedb, header, tx, totalUsedGas)
 			if errs != nil {
 				return nil, nil, nil, errs
 			}
@@ -93,9 +105,11 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB) (ty
 	}
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles(), receipts)
-
+	iSender, ifindsynsender := types.GetSenderCount()
+	fmt.Println("----use:", time.Now().UnixNano()-now, "isender=", iSender, "ifindsynsender=", ifindsynsender)
 	return receipts, allLogs, totalUsedGas, nil
 }
+
 // ApplyTransaction attempts to apply a transaction to the given state database
 // and uses the input parameters for its environment. It returns the receipt
 // for the transaction, gas used and an error if the transaction failed,
@@ -103,7 +117,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB) (ty
 func ApplyTransaction(config *config.ChainConfig, bc *BlockChain, author *common.Address, gp *GasPool, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *big.Int) (*types.Receipt, *big.Int, error) {
 	msg, err := tx.AsMessage(types.MakeSigner(config))
 	if err != nil {
-		log.Error("Asmessage err","err",err)
+		log.Error("Asmessage err", "err", err)
 		return nil, nil, err
 	}
 	cfg := evm.Config{}
@@ -115,7 +129,7 @@ func ApplyTransaction(config *config.ChainConfig, bc *BlockChain, author *common
 	// Apply the transaction to the current state (included in the env)
 	_, gas, failed, err := ApplyMessage(vmenv, msg, gp)
 	if err != nil {
-		log.Error("ApplyMessage err","err",err)
+		log.Error("ApplyMessage err", "err", err)
 		return nil, nil, err
 	}
 
@@ -142,6 +156,7 @@ func ApplyTransaction(config *config.ChainConfig, bc *BlockChain, author *common
 
 	return receipt, gas, err
 }
+
 // ApplyTransaction attempts to apply a transaction to the given state database
 // and uses the input parameters for its environment. It returns the receipt
 // for the transaction, gas used and an error if the transaction failed,
@@ -149,14 +164,14 @@ func ApplyTransaction(config *config.ChainConfig, bc *BlockChain, author *common
 func ApplyTransactionNonContract(config *config.ChainConfig, bc *BlockChain, author *common.Address, gp *GasPool, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *big.Int) (*types.Receipt, *big.Int, error) {
 	msg, err := tx.AsMessage(types.MakeSigner(config))
 	if err != nil {
-		log.Error("Asmessage err","err",err)
+		log.Error("Asmessage err", "err", err)
 		return nil, nil, err
 	}
 
 	// Apply the transaction to the current state (included in the env)
 	_, gas, failed, err := ApplyMessageNonContract(msg, bc, author, gp, statedb, header)
 	if err != nil {
-		log.Error("ApplyMessageNonContract err","err",err)
+		log.Error("ApplyMessageNonContract err", "err", err)
 		return nil, nil, err
 	}
 

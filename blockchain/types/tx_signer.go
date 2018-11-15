@@ -22,17 +22,21 @@ import (
 	"fmt"
 	"math/big"
 
+	"encoding/hex"
+	"sync"
+
+	"github.com/hpb-project/go-hpb/boe"
 	"github.com/hpb-project/go-hpb/common"
 	"github.com/hpb-project/go-hpb/common/crypto"
-	"github.com/hpb-project/go-hpb/config"
-	"github.com/hpb-project/go-hpb/boe"
 	"github.com/hpb-project/go-hpb/common/log"
-	"sync"
+	"github.com/hpb-project/go-hpb/config"
 )
 
 var (
-	ErrInvalidChainId = errors.New("invalid chain id for signer")
-	ErrInvalidAsynsinger = errors.New("invalid chain id  Asyn Send OK for signer")
+	ErrInvalidChainId        = errors.New("invalid chain id for signer")
+	ErrInvalidAsynsinger     = errors.New("invalid chain id  Asyn Send OK for signer")
+	iSender              int = 0
+	ifindSynSender       int = 0
 )
 
 // sigCache is used to cache the derived sender and contains
@@ -41,40 +45,49 @@ type sigCache struct {
 	signer Signer
 	from   common.Address
 }
+
 var singerRWLock sync.RWMutex
+
 type Smap struct {
 	Data map[common.Hash]common.Address
-	L sync.RWMutex
+	L    sync.RWMutex
 }
 
 var (
-	Asynsinger = &Smap{Data:make(map[common.Hash]common.Address)}
+	Asynsinger = &Smap{Data: make(map[common.Hash]common.Address)}
+	//Beoreckey  = &Smap{Data:make(map[common.Hash]common.Address)}
 )
 
-func SMapGet(m *Smap, khash common.Hash) (common.Address,error){
+func InitSenderCount() {
+	iSender = 0
+	ifindSynSender = 0
+}
+func GetSenderCount() (int, int) {
+	return iSender, ifindSynSender
+}
+
+func SMapGet(m *Smap, khash common.Hash) (common.Address, error) {
 	m.L.RLock()
 	defer m.L.RUnlock()
 
-	kvalue,ok := m.Data[khash]
+	kvalue, ok := m.Data[khash]
 	if ok != true {
-		log.Error("SMapGet hash values is null error","m.Data[khash]",m.Data[khash])
-		return common.Address{},errors.New("SMapGet hash values is null")
+		log.Debug("SMapGet hash values is null", "m.Data[khash]", m.Data[khash])
+		return common.Address{}, errors.New("SMapGet hash values is null")
 	}
-	log.Info(" SMapGet OK","khash",khash,"kvalue",kvalue)
-	return kvalue,nil
+	log.Debug("hanxiaole test SMapGet input hash and kvalue", "khash", khash, "kvalue", kvalue)
+	return kvalue, nil
 }
 
-func SMapSet(m *Smap, khash common.Hash,kaddress common.Address) error {
+func SMapSet(m *Smap, khash common.Hash, kaddress common.Address) error {
 	m.L.Lock()
 	defer m.L.Unlock()
-
-	m.Data[khash]=kaddress
-	from,ok := m.Data[khash]
-	if ok != true{
-		log.Error("SMapSet hash values is null error","from",from)
+	m.Data[khash] = kaddress
+	from, ok := m.Data[khash]
+	if ok != true {
 		return errors.New("SMapSet hash values is null")
 	}
-	log.Info("SMapSet ok","SMapSet from",from)
+	log.Debug("hanxiaole SMapSet =11111111111111111111===", "SMapSet from", from)
 	return nil
 }
 
@@ -104,39 +117,54 @@ func Sender(signer Signer, tx *Transaction) (common.Address, error) {
 	//if (tx.from.Load() != nil && reflect.TypeOf(tx.from.Load()) == reflect.TypeOf(common.Address{}) && tx.from.Load().(common.Address) != common.Address{}) {
 	//	return tx.from.Load().(common.Address), nil
 	//}
+	asynAddress, err := SMapGet(Asynsinger, signer.Hash(tx))
+	if err == nil {
+		//log.Info("hanxiaole test ASynSender reASyn SMapGet()  ", "common.Address", asynAddress, "signer.Hash(tx)", signer.Hash(tx), "tx.hash", tx.Hash())
+		/*SMapGet success and set sigCache value*/
+		ifindSynSender += 1
+		tx.from.Store(sigCache{signer: signer, from: asynAddress})
+		return asynAddress, nil
+	}
+
 	if sc := tx.from.Load(); sc != nil {
 		sigCache := sc.(sigCache)
 		// If the signer used to derive from in a previous
 		// call is not the same as used current, invalidate
 		// the cache.2
 		if sigCache.signer.Equal(signer) {
-			log.Info("Sender get Cache address ok","tx.hash",tx.Hash(),"signer.Hash(tx)",signer.Hash(tx))
+			//log.Debug("Sender get address tx.from.Load() Sender okokok ", "tx.hash", tx.Hash(), "signer.Hash(tx)", signer.Hash(tx))
 			return sigCache.from, nil
 		}
 	}
-
+	iSender += 1
+	//log.Debug("Sender hanxiaole 11111111111111111 send ", "tx.hash", tx.Hash(), "signer.Hash(tx)", signer.Hash(tx))
 	addr, err := signer.Sender(tx)
 	if err != nil {
 		return common.Address{}, err
 	}
-
 	tx.from.Store(sigCache{signer: signer, from: addr})
-	log.Info("Sender send ok","tx.hash",tx.Hash(),"signer.Hash(tx)",signer.Hash(tx))
 	return addr, nil
 }
 func ASynSender(signer Signer, tx *Transaction) (common.Address, error) {
 
-	asynAddress ,err:= SMapGet(Asynsinger,signer.Hash(tx))
-	if err == nil{
-		log.Info("ASynSender SMapGet OK","common.Address",asynAddress,"signer.Hash(tx)",signer.Hash(tx),"tx.hash",tx.Hash())
+	//log.Debug("hanxiaole test SMapGet(Asynsinger,signer.Hash(tx))", "signer.Hash(tx)", signer.Hash(tx), "tx.Hash()", tx.Hash())
+
+	asynAddress, err := SMapGet(Asynsinger, signer.Hash(tx))
+	if err == nil {
+		//log.Info("hanxiaole test ASynSender reASyn SMapGet()  ", "common.Address", asynAddress, "signer.Hash(tx)", signer.Hash(tx), "tx.hash", tx.Hash())
+		/*SMapGet success and set sigCache value*/
 		tx.from.Store(sigCache{signer: signer, from: asynAddress})
-		return asynAddress,nil
+		return asynAddress, nil
 	}
 
+	//log.Debug("hanxiaole tx.from.Load()", "tx.Hash()", tx.Hash(), "signer.Hash(tx)", signer.Hash(tx))
 	if sc := tx.from.Load(); sc != nil {
 		sigCache := sc.(sigCache)
+		// If the signer used to derive from in a previous
+		// call is not the same as used current, invalidate
+		// the cache.2
 		if sigCache.signer.Equal(signer) {
-			log.Info("ASynSender Cache get OK","sigCache.from",sigCache.from,"tx.Hash()",tx.Hash())
+			//log.Debug("hanxiaole test ASynSender reASyn tx.from.Load() OKOKOK ", "sigCache.from", sigCache.from, "tx.Hash()", tx.Hash())
 			return sigCache.from, nil
 		}
 	}
@@ -147,6 +175,7 @@ func ASynSender(signer Signer, tx *Transaction) (common.Address, error) {
 	}
 	return addr, ErrInvalidAsynsinger
 }
+
 // Signer encapsulates transaction signature handling. Note that this interface is not a
 // stable API and may change at any time to accommodate new protocol rules.
 type Signer interface {
@@ -202,18 +231,19 @@ func (s BoeSigner) Sender(tx *Transaction) (common.Address, error) {
 func (s BoeSigner) ASynSender(tx *Transaction) (common.Address, error) {
 	if !tx.Protected() {
 		//return HomesteadSigner{}.Sender(tx)
-		log.Warn("ASynSender tx.Protected()")
+		log.Debug("tx.Protected() hanxiaole test 111111111111111111")
 		//TODO transaction can be unprotected ?
 	}
 	if tx.ChainId().Cmp(s.chainId) != 0 {
-		log.Warn("ASynSender tx.Protected()")
+		log.Info("tx.Protected() hanxiaole test 2222222222222222222")
 		return common.Address{}, ErrInvalidChainId
 	}
 	V := new(big.Int).Sub(tx.data.V, s.chainIdMul)
 	V.Sub(V, big8)
-
+	log.Debug("BoeSigner ASynSender  ASynrecoverPlain hanxiaole test  send ", "tx.hash", tx.Hash())
 	return ASynrecoverPlain(s.Hash(tx), tx.data.R, tx.data.S, V)
 }
+
 // WithSignature returns a new transaction with the given signature. This signature
 // needs to be in the [R || S || V] format where V is 0 or 1.
 func (s BoeSigner) SignatureValues(tx *Transaction, sig []byte) (R, S, V *big.Int, err error) {
@@ -278,8 +308,6 @@ func recoverPlain(sighash common.Hash, R, S, Vb *big.Int) (common.Address, error
 		return common.Address{}, ErrInvalidSig
 	}
 
-
-
 	// encode the snature in uncompressed format
 	r, s := R.Bytes(), S.Bytes()
 	//sig := make([]byte, 65)
@@ -287,7 +315,7 @@ func recoverPlain(sighash common.Hash, R, S, Vb *big.Int) (common.Address, error
 	copy(sig[64-len(s):64], s)
 	sig[64] = V*/
 
-	pub , err := boe.BoeGetInstance().ValidateSign(sighash.Bytes(), r, s, V)
+	pub, err := boe.BoeGetInstance().ValidateSign(sighash.Bytes(), r, s, V)
 	if err != nil {
 		log.Trace("boe validatesign error")
 		return common.Address{}, err
@@ -306,26 +334,27 @@ func recoverPlain(sighash common.Hash, R, S, Vb *big.Int) (common.Address, error
 	return addr, nil
 }
 
-
 func ASynrecoverPlain(sighash common.Hash, R, S, Vb *big.Int) (common.Address, error) {
 
 	if Vb.BitLen() > 8 {
-		log.Error("ASynrecoverPlain Vb.BitLen() > 8")
+		log.Info("ASynrecoverPlain Vb.BitLen() > 8 hanxiaole test 11111111111111")
 		return common.Address{}, ErrInvalidSig
 	}
 	V := byte(Vb.Uint64() - 27)
 	if !crypto.ValidateSignatureValues(V, R, S, true) {
-		log.Error("ASynrecoverPlain !crypto.ValidateSignatureValues")
+		log.Info("ASynrecoverPlain !crypto.ValidateSignatureValues hanxiaole test 22222222222222222222")
 		return common.Address{}, ErrInvalidSig
 	}
 	r, s := R.Bytes(), S.Bytes()
 
+	log.Debug("ASynrecoverPlain hanxiaole test ", "hash", sighash, "hash.bytes", sighash.Bytes(), "send hash", hex.EncodeToString(sighash.Bytes()))
+
 	err := boe.BoeGetInstance().ASyncValidateSign(sighash.Bytes(), r, s, V)
 	if err != nil {
-		log.Error("boe validatesign error")
+		log.Info("boe validatesign error 3333333333333333333333333")
 		return common.Address{}, err
 	}
-	log.Info("ASynrecoverPlain Send to BOE OK","sighash",sighash)
+	log.Debug("ASynrecoverPlain ASynrecoverPlain hanxiaole end 444444444444444444444444")
 	return common.Address{}, ErrInvalidAsynsinger
 }
 
@@ -342,24 +371,27 @@ func deriveChainId(v *big.Int) *big.Int {
 	return v.Div(v, big.NewInt(2))
 }
 
-func boecallback(rs boe.RecoverPubkey,err error) {
+func boecallback(rs boe.RecoverPubkey, err error) {
 	if err != nil {
-		log.Error("boecallback boe validatesign error")
+		log.Trace("boe validatesign error")
 	}
 	if len(rs.Pub) == 0 || rs.Pub[0] != 4 {
-		log.Error("boecallback boe invalid public key")
+		log.Trace("invalid public key")
 	}
 
 	var addr = common.Address{}
 	copy(addr[:], crypto.Keccak256(rs.Pub[1:])[12:])
+	/*
+		var sigtmp []byte
+		copy(sigtmp[:], rs.Sig[0:])
+	*/
+	var comhash common.Hash
+	copy(comhash[:], rs.Hash[0:])
 
-	var  comhash common.Hash
-	copy(comhash[0:], rs.Hash[0:])
-
-	errSet := SMapSet(Asynsinger,comhash,addr)
-	if errSet !=nil{
+	errSet := SMapSet(Asynsinger, comhash, addr)
+	if errSet != nil {
 		log.Info("boecallback SMapSet error!")
 	}
-	log.Info("boecallback boe rec singer data success","comhash",comhash,"rs.hash",rs.Hash,"addr",addr)
+	log.Debug("boe boecallback hanxiaole Store success", "hash", comhash, "rs.hash", rs.Hash, "addr", addr)
 
 }
