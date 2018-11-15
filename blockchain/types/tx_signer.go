@@ -116,6 +116,13 @@ func Sender(signer Signer, tx *Transaction) (common.Address, error) {
 	//if (tx.from.Load() != nil && reflect.TypeOf(tx.from.Load()) == reflect.TypeOf(common.Address{}) && tx.from.Load().(common.Address) != common.Address{}) {
 	//	return tx.from.Load().(common.Address), nil
 	//}
+	asynAddress, err := SMapGet(Asynsinger, signer.Hash(tx))
+	if err == nil {
+		ifindSynSender += 1
+		log.Info("SenderFunc find ASynSenderCache OK","common.Address",asynAddress,"signer.Hash(tx)",signer.Hash(tx),"tx.hash",tx.Hash())
+		tx.from.Store(sigCache{signer: signer, from: asynAddress})
+		return asynAddress, nil
+	}
 	if sc := tx.from.Load(); sc != nil {
 		sigCache := sc.(sigCache)
 		// If the signer used to derive from in a previous
