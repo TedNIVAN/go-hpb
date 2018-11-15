@@ -62,6 +62,19 @@ func InitSenderCount() {
 func GetSenderCount() (int, int) {
 	return iSender, ifindSynSender
 }
+func SMapDelete(m *Smap, khash common.Hash) (error){
+	m.L.RLock()
+	defer m.L.RUnlock()
+
+	delete(m.Data,khash)
+	kvalue,ok := m.Data[khash]
+	if ok == true {
+		log.Debug("SMapDelete err","m.Data[khash]",kvalue)
+		return errors.New("SMapDelete err")
+	}
+	log.Debug(" SMapDelete OK","khash",khash,"kvalue",kvalue)
+	return nil
+}
 
 func SMapGet(m *Smap, khash common.Hash) (common.Address,error){
 	m.L.RLock()
@@ -123,10 +136,6 @@ func Sender(signer Signer, tx *Transaction) (common.Address, error) {
 		// the cache.2
 		if sigCache.signer.Equal(signer) {
 			log.Debug("Sender get Cache address ok","tx.hash",tx.Hash(),"signer.Hash(tx)",signer.Hash(tx))
-			errSet := SMapSet(Asynsinger,signer.Hash(tx),sigCache.from)
-			if errSet !=nil{
-				log.Info("boecallback SMapSet error!")
-			}
 			return sigCache.from, nil
 		}
 	}
@@ -144,6 +153,10 @@ func Sender(signer Signer, tx *Transaction) (common.Address, error) {
 		return common.Address{}, err
 	}
 	tx.from.Store(sigCache{signer: signer, from: addr})
+	errSet := SMapSet(Asynsinger,signer.Hash(tx),addr)
+	if errSet !=nil{
+		log.Info("Sender SMapSet error!")
+	}
 	log.Debug("Sender send ok","tx.hash",tx.Hash(),"signer.Hash(tx)",signer.Hash(tx))
 	return addr, nil
 }
@@ -153,6 +166,11 @@ func ASynSender(signer Signer, tx *Transaction) (common.Address, error) {
 		sigCache := sc.(sigCache)
 		if sigCache.signer.Equal(signer) {
 			log.Debug("ASynSender Cache get OK","sigCache.from",sigCache.from,"tx.Hash()",tx.Hash())
+			deleteErr := SMapDelete(Asynsinger,signer.Hash(tx))
+			if deleteErr != nil{
+				log.Error("SMapDelete err","tx.hash",tx.Hash(),"signer.hash",signer.Hash(tx))
+			}
+			log.Debug("SMapDelete Cache OK","tx.hash",tx.Hash(),"signer.hash",signer.Hash(tx))
 			return sigCache.from, nil
 		}
 	}
@@ -161,7 +179,6 @@ func ASynSender(signer Signer, tx *Transaction) (common.Address, error) {
 	if err == nil{
 		log.Debug("ASynSender SMapGet OK","common.Address",asynAddress,"signer.Hash(tx)",signer.Hash(tx),"tx.hash",tx.Hash())
 		tx.from.Store(sigCache{signer: signer, from: asynAddress})
-		delete(Asynsinger.Data,signer.Hash(tx)) //清除Asynsinger.Data[signer.Hash(tx)]
 		return asynAddress, nil
 	}
 	addr, err := signer.ASynSender(tx)
