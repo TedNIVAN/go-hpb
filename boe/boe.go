@@ -504,5 +504,6 @@ func (boe *BoeHandle) GetNextHash(hash []byte) ([]byte, error) {
     if ret == C.BOE_OK {
         return result, nil
     } 
+
     return nil, ErrGetNextHashFailed
 }
