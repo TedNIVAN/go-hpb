@@ -62,6 +62,19 @@ func InitSenderCount() {
 func GetSenderCount() (int, int) {
 	return iSender, ifindSynSender
 }
+func SMapDelete(m *Smap, khash common.Hash) (error){
+	m.L.RLock()
+	defer m.L.RUnlock()
+
+	delete(m.Data,khash)
+	kvalue,ok := m.Data[khash]
+	if ok == true {
+		log.Debug("SMapDelete err","m.Data[khash]",kvalue)
+		return errors.New("SMapDelete err")
+	}
+	log.Debug(" SMapDelete OK","khash",khash,"kvalue",kvalue)
+	return nil
+}
 
 func SMapGet(m *Smap, khash common.Hash) (common.Address,error){
 	m.L.RLock()
@@ -69,10 +82,10 @@ func SMapGet(m *Smap, khash common.Hash) (common.Address,error){
 
 	kvalue,ok := m.Data[khash]
 	if ok != true {
-		log.Error("SMapGet hash values is null error","m.Data[khash]",m.Data[khash])
+		log.Debug("SMapGet hash values is null error","m.Data[khash]",m.Data[khash])
 		return common.Address{},errors.New("SMapGet hash values is null")
 	}
-	log.Info(" SMapGet OK","khash",khash,"kvalue",kvalue)
+	log.Debug(" SMapGet OK","khash",khash,"kvalue",kvalue)
 	return kvalue,nil
 }
 
@@ -86,7 +99,7 @@ func SMapSet(m *Smap, khash common.Hash,kaddress common.Address) error {
 		log.Error("SMapSet hash values is null error","from",from)
 		return errors.New("SMapSet hash values is null")
 	}
-	log.Info("SMapSet ok","SMapSet from",from)
+	log.Debug("SMapSet ok","SMapSet from",from)
 	return nil
 }
 
@@ -116,22 +129,22 @@ func Sender(signer Signer, tx *Transaction) (common.Address, error) {
 	//if (tx.from.Load() != nil && reflect.TypeOf(tx.from.Load()) == reflect.TypeOf(common.Address{}) && tx.from.Load().(common.Address) != common.Address{}) {
 	//	return tx.from.Load().(common.Address), nil
 	//}
-	asynAddress, err := SMapGet(Asynsinger, signer.Hash(tx))
-	if err == nil {
-		ifindSynSender += 1
-		log.Info("SenderFunc find ASynSenderCache OK","common.Address",asynAddress,"signer.Hash(tx)",signer.Hash(tx),"tx.hash",tx.Hash())
-		tx.from.Store(sigCache{signer: signer, from: asynAddress})
-		return asynAddress, nil
-	}
 	if sc := tx.from.Load(); sc != nil {
 		sigCache := sc.(sigCache)
 		// If the signer used to derive from in a previous
 		// call is not the same as used current, invalidate
 		// the cache.2
 		if sigCache.signer.Equal(signer) {
-			log.Info("Sender get Cache address ok","tx.hash",tx.Hash(),"signer.Hash(tx)",signer.Hash(tx))
+			log.Debug("Sender get Cache address ok","tx.hash",tx.Hash(),"signer.Hash(tx)",signer.Hash(tx))
 			return sigCache.from, nil
 		}
+	}
+	asynAddress, err := SMapGet(Asynsinger, signer.Hash(tx))
+	if err == nil {
+		ifindSynSender += 1
+		log.Debug("SenderFunc find ASynSenderCache OK","common.Address",asynAddress,"signer.Hash(tx)",signer.Hash(tx),"tx.hash",tx.Hash())
+		tx.from.Store(sigCache{signer: signer, from: asynAddress})
+		return asynAddress, nil
 	}
 	iSender += 1
 
@@ -140,26 +153,34 @@ func Sender(signer Signer, tx *Transaction) (common.Address, error) {
 		return common.Address{}, err
 	}
 	tx.from.Store(sigCache{signer: signer, from: addr})
-	log.Info("Sender send ok","tx.hash",tx.Hash(),"signer.Hash(tx)",signer.Hash(tx))
+	errSet := SMapSet(Asynsinger,signer.Hash(tx),addr)
+	if errSet !=nil{
+		log.Info("Sender SMapSet error!")
+	}
+	log.Debug("Sender send ok","tx.hash",tx.Hash(),"signer.Hash(tx)",signer.Hash(tx))
 	return addr, nil
 }
 func ASynSender(signer Signer, tx *Transaction) (common.Address, error) {
 
-	asynAddress ,err:= SMapGet(Asynsinger,signer.Hash(tx))
-	if err == nil{
-		log.Info("ASynSender SMapGet OK","common.Address",asynAddress,"signer.Hash(tx)",signer.Hash(tx),"tx.hash",tx.Hash())
-		tx.from.Store(sigCache{signer: signer, from: asynAddress})
-		return asynAddress, nil
-	}
-
 	if sc := tx.from.Load(); sc != nil {
 		sigCache := sc.(sigCache)
 		if sigCache.signer.Equal(signer) {
-			log.Info("ASynSender Cache get OK","sigCache.from",sigCache.from,"tx.Hash()",tx.Hash())
+			log.Debug("ASynSender Cache get OK","sigCache.from",sigCache.from,"tx.Hash()",tx.Hash())
+			deleteErr := SMapDelete(Asynsinger,signer.Hash(tx))
+			if deleteErr != nil{
+				log.Error("SMapDelete err","tx.hash",tx.Hash(),"signer.hash",signer.Hash(tx))
+			}
+			log.Debug("SMapDelete Cache OK","tx.hash",tx.Hash(),"signer.hash",signer.Hash(tx))
 			return sigCache.from, nil
 		}
 	}
 
+	asynAddress ,err:= SMapGet(Asynsinger,signer.Hash(tx))
+	if err == nil{
+		log.Debug("ASynSender SMapGet OK","common.Address",asynAddress,"signer.Hash(tx)",signer.Hash(tx),"tx.hash",tx.Hash())
+		tx.from.Store(sigCache{signer: signer, from: asynAddress})
+		return asynAddress, nil
+	}
 	addr, err := signer.ASynSender(tx)
 	if err != nil {
 		return common.Address{}, err
@@ -342,7 +363,7 @@ func ASynrecoverPlain(sighash common.Hash, R, S, Vb *big.Int) (common.Address, e
 		log.Error("boe validatesign error")
 		return common.Address{}, err
 	}
-	log.Info("ASynrecoverPlain Send to BOE OK","sighash",sighash)
+	log.Debug("ASynrecoverPlain Send to BOE OK","sighash",sighash)
 	return common.Address{}, ErrInvalidAsynsinger
 }
 
@@ -377,6 +398,6 @@ func boecallback(rs boe.RecoverPubkey,err error) {
 	if errSet !=nil{
 		log.Info("boecallback SMapSet error!")
 	}
-	log.Info("boecallback boe rec singer data success","comhash",comhash,"rs.hash",rs.Hash,"addr",addr)
+	log.Debug("boecallback boe rec singer data success","comhash",comhash,"rs.hash",rs.Hash,"addr",addr)
 
 }
