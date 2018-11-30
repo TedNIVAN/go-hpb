@@ -22,12 +22,13 @@ import (
 	"fmt"
 	"math/big"
 
+	"sync"
+
+	"github.com/hpb-project/go-hpb/boe"
 	"github.com/hpb-project/go-hpb/common"
 	"github.com/hpb-project/go-hpb/common/crypto"
-	"github.com/hpb-project/go-hpb/config"
-	"github.com/hpb-project/go-hpb/boe"
 	"github.com/hpb-project/go-hpb/common/log"
-	"sync"
+	"github.com/hpb-project/go-hpb/config"
 )
 
 var (
@@ -52,7 +53,7 @@ type Smap struct {
 }
 
 var (
-	Asynsinger = &Smap{Data:make(map[common.Hash]common.Address)}
+	Asynsinger = &Smap{Data: make(map[common.Hash]common.Address)}
 )
 
 func InitSenderCount() {
@@ -62,44 +63,44 @@ func InitSenderCount() {
 func GetSenderCount() (int, int) {
 	return iSender, ifindSynSender
 }
-func SMapDelete(m *Smap, khash common.Hash) (error){
-	m.L.RLock()
-	defer m.L.RUnlock()
-
-	delete(m.Data,khash)
-	kvalue,ok := m.Data[khash]
-	if ok == true {
-		log.Debug("SMapDelete err","m.Data[khash]",kvalue)
-		return errors.New("SMapDelete err")
-	}
-	log.Debug(" SMapDelete OK","khash",khash,"kvalue",kvalue)
-	return nil
-}
-
-func SMapGet(m *Smap, khash common.Hash) (common.Address,error){
-	m.L.RLock()
-	defer m.L.RUnlock()
-
-	kvalue,ok := m.Data[khash]
-	if ok != true {
-		log.Debug("SMapGet hash values is null error","m.Data[khash]",m.Data[khash])
-		return common.Address{},errors.New("SMapGet hash values is null")
-	}
-	log.Debug(" SMapGet OK","khash",khash,"kvalue",kvalue)
-	return kvalue,nil
-}
-
-func SMapSet(m *Smap, khash common.Hash,kaddress common.Address) error {
+func SMapDelete(m *Smap, khash common.Hash) error {
 	m.L.Lock()
 	defer m.L.Unlock()
 
-	m.Data[khash]=kaddress
-	from,ok := m.Data[khash]
-	if ok != true{
-		log.Error("SMapSet hash values is null error","from",from)
+	delete(m.Data, khash)
+	kvalue, ok := m.Data[khash]
+	if ok == true {
+		log.Debug("SMapDelete err", "m.Data[khash]", kvalue)
+		return errors.New("SMapDelete err")
+	}
+	log.Debug(" SMapDelete OK", "khash", khash, "kvalue", kvalue)
+	return nil
+}
+
+func SMapGet(m *Smap, khash common.Hash) (common.Address, error) {
+	m.L.RLock()
+	defer m.L.RUnlock()
+
+	kvalue, ok := m.Data[khash]
+	if ok != true {
+		log.Debug("SMapGet hash values is null error", "m.Data[khash]", m.Data[khash])
+		return common.Address{}, errors.New("SMapGet hash values is null")
+	}
+	log.Debug(" SMapGet OK", "khash", khash, "kvalue", kvalue)
+	return kvalue, nil
+}
+
+func SMapSet(m *Smap, khash common.Hash, kaddress common.Address) error {
+	m.L.Lock()
+	defer m.L.Unlock()
+
+	m.Data[khash] = kaddress
+	from, ok := m.Data[khash]
+	if ok != true {
+		log.Error("SMapSet hash values is null error", "from", from)
 		return errors.New("SMapSet hash values is null")
 	}
-	log.Debug("SMapSet ok","SMapSet from",from)
+	log.Debug("SMapSet ok", "SMapSet from", from)
 	return nil
 }
 
@@ -135,14 +136,14 @@ func Sender(signer Signer, tx *Transaction) (common.Address, error) {
 		// call is not the same as used current, invalidate
 		// the cache.2
 		if sigCache.signer.Equal(signer) {
-			log.Debug("Sender get Cache address ok","tx.hash",tx.Hash(),"signer.Hash(tx)",signer.Hash(tx))
+			log.Debug("Sender get Cache address ok", "tx.hash", tx.Hash(), "signer.Hash(tx)", signer.Hash(tx))
 			return sigCache.from, nil
 		}
 	}
 	asynAddress, err := SMapGet(Asynsinger, signer.Hash(tx))
 	if err == nil {
 		ifindSynSender += 1
-		log.Debug("SenderFunc find ASynSenderCache OK","common.Address",asynAddress,"signer.Hash(tx)",signer.Hash(tx),"tx.hash",tx.Hash())
+		log.Debug("SenderFunc find ASynSenderCache OK", "common.Address", asynAddress, "signer.Hash(tx)", signer.Hash(tx), "tx.hash", tx.Hash())
 		tx.from.Store(sigCache{signer: signer, from: asynAddress})
 		return asynAddress, nil
 	}
@@ -153,11 +154,11 @@ func Sender(signer Signer, tx *Transaction) (common.Address, error) {
 		return common.Address{}, err
 	}
 	tx.from.Store(sigCache{signer: signer, from: addr})
-	errSet := SMapSet(Asynsinger,signer.Hash(tx),addr)
-	if errSet !=nil{
+	errSet := SMapSet(Asynsinger, signer.Hash(tx), addr)
+	if errSet != nil {
 		log.Info("Sender SMapSet error!")
 	}
-	log.Debug("Sender send ok","tx.hash",tx.Hash(),"signer.Hash(tx)",signer.Hash(tx))
+	log.Debug("Sender send ok", "tx.hash", tx.Hash(), "signer.Hash(tx)", signer.Hash(tx))
 	return addr, nil
 }
 func ASynSender(signer Signer, tx *Transaction) (common.Address, error) {
@@ -165,19 +166,19 @@ func ASynSender(signer Signer, tx *Transaction) (common.Address, error) {
 	if sc := tx.from.Load(); sc != nil {
 		sigCache := sc.(sigCache)
 		if sigCache.signer.Equal(signer) {
-			log.Debug("ASynSender Cache get OK","sigCache.from",sigCache.from,"tx.Hash()",tx.Hash())
-			deleteErr := SMapDelete(Asynsinger,signer.Hash(tx))
-			if deleteErr != nil{
-				log.Error("SMapDelete err","tx.hash",tx.Hash(),"signer.hash",signer.Hash(tx))
+			log.Debug("ASynSender Cache get OK", "sigCache.from", sigCache.from, "tx.Hash()", tx.Hash())
+			deleteErr := SMapDelete(Asynsinger, signer.Hash(tx))
+			if deleteErr != nil {
+				log.Error("SMapDelete err", "tx.hash", tx.Hash(), "signer.hash", signer.Hash(tx))
 			}
-			log.Debug("SMapDelete Cache OK","tx.hash",tx.Hash(),"signer.hash",signer.Hash(tx))
+			log.Debug("SMapDelete Cache OK", "tx.hash", tx.Hash(), "signer.hash", signer.Hash(tx))
 			return sigCache.from, nil
 		}
 	}
 
-	asynAddress ,err:= SMapGet(Asynsinger,signer.Hash(tx))
-	if err == nil{
-		log.Debug("ASynSender SMapGet OK","common.Address",asynAddress,"signer.Hash(tx)",signer.Hash(tx),"tx.hash",tx.Hash())
+	asynAddress, err := SMapGet(Asynsinger, signer.Hash(tx))
+	if err == nil {
+		log.Debug("ASynSender SMapGet OK", "common.Address", asynAddress, "signer.Hash(tx)", signer.Hash(tx), "tx.hash", tx.Hash())
 		tx.from.Store(sigCache{signer: signer, from: asynAddress})
 		return asynAddress, nil
 	}
@@ -187,6 +188,7 @@ func ASynSender(signer Signer, tx *Transaction) (common.Address, error) {
 	}
 	return addr, ErrInvalidAsynsinger
 }
+
 // Signer encapsulates transaction signature handling. Note that this interface is not a
 // stable API and may change at any time to accommodate new protocol rules.
 type Signer interface {
@@ -254,6 +256,7 @@ func (s BoeSigner) ASynSender(tx *Transaction) (common.Address, error) {
 
 	return ASynrecoverPlain(s.Hash(tx), tx.data.R, tx.data.S, V)
 }
+
 // WithSignature returns a new transaction with the given signature. This signature
 // needs to be in the [R || S || V] format where V is 0 or 1.
 func (s BoeSigner) SignatureValues(tx *Transaction, sig []byte) (R, S, V *big.Int, err error) {
@@ -344,7 +347,6 @@ func recoverPlain(sighash common.Hash, R, S, Vb *big.Int) (common.Address, error
 	return addr, nil
 }
 
-
 func ASynrecoverPlain(sighash common.Hash, R, S, Vb *big.Int) (common.Address, error) {
 
 	if Vb.BitLen() > 8 {
@@ -363,7 +365,7 @@ func ASynrecoverPlain(sighash common.Hash, R, S, Vb *big.Int) (common.Address, e
 		log.Error("boe validatesign error")
 		return common.Address{}, err
 	}
-	log.Debug("ASynrecoverPlain Send to BOE OK","sighash",sighash)
+	log.Debug("ASynrecoverPlain Send to BOE OK", "sighash", sighash)
 	return common.Address{}, ErrInvalidAsynsinger
 }
 
@@ -380,7 +382,7 @@ func deriveChainId(v *big.Int) *big.Int {
 	return v.Div(v, big.NewInt(2))
 }
 
-func boecallback(rs boe.RecoverPubkey,err error) {
+func boecallback(rs boe.RecoverPubkey, err error) {
 	if err != nil {
 		log.Error("boecallback boe validatesign error")
 	}
@@ -391,13 +393,13 @@ func boecallback(rs boe.RecoverPubkey,err error) {
 	var addr = common.Address{}
 	copy(addr[:], crypto.Keccak256(rs.Pub[1:])[12:])
 
-	var  comhash common.Hash
+	var comhash common.Hash
 	copy(comhash[0:], rs.Hash[0:])
 
-	errSet := SMapSet(Asynsinger,comhash,addr)
-	if errSet !=nil{
+	errSet := SMapSet(Asynsinger, comhash, addr)
+	if errSet != nil {
 		log.Info("boecallback SMapSet error!")
 	}
-	log.Debug("boecallback boe rec singer data success","comhash",comhash,"rs.hash",rs.Hash,"addr",addr)
+	log.Debug("boecallback boe rec singer data success", "comhash", comhash, "rs.hash", rs.Hash, "addr", addr)
 
 }
