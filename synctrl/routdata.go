@@ -126,7 +126,6 @@ func routBlock(block *types.Block, propagate bool) {
 // already have the given transaction.
 func routTx(hash common.Hash, tx *types.Transaction) {
 	// Broadcast transaction to a batch of peers not knowing about it
-	//log.Warn("###### start routTx ", "forward",tx.IsForward())
 
 	if tx.IsForward() {
 		//log.Warn("######rout forward tx")
