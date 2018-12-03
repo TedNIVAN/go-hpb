@@ -167,11 +167,6 @@ func ASynSender(signer Signer, tx *Transaction) (common.Address, error) {
 		sigCache := sc.(sigCache)
 		if sigCache.signer.Equal(signer) {
 			log.Debug("ASynSender Cache get OK", "sigCache.from", sigCache.from, "tx.Hash()", tx.Hash())
-			deleteErr := SMapDelete(Asynsinger, signer.Hash(tx))
-			if deleteErr != nil {
-				log.Error("SMapDelete err", "tx.hash", tx.Hash(), "signer.hash", signer.Hash(tx))
-			}
-			log.Debug("SMapDelete Cache OK", "tx.hash", tx.Hash(), "signer.hash", signer.Hash(tx))
 			return sigCache.from, nil
 		}
 	}
