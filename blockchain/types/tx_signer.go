@@ -63,6 +63,7 @@ func InitSenderCount() {
 func GetSenderCount() (int, int) {
 	return iSender, ifindSynSender
 }
+
 func SMapDelete(m *Smap, khash common.Hash) error {
 	m.L.Lock()
 	defer m.L.Unlock()
@@ -102,6 +103,10 @@ func SMapSet(m *Smap, khash common.Hash, kaddress common.Address) error {
 	}
 	log.Debug("SMapSet ok", "SMapSet from", from)
 	return nil
+}
+func Deletesynsinger(signer Signer, tx *Transaction) {
+	log.Debug("lenSigner", "len(synsigner)", len(Asynsinger.Data))
+	SMapDelete(Asynsinger, signer.Hash(tx))
 }
 
 // MakeSigner returns a Signer based on the given chain config and block number.

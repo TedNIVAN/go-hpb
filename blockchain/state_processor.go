@@ -103,6 +103,13 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB) (ty
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
 	}
+	go func(txs []*types.Transaction) {
+		synsigner := types.MakeSigner(p.config)
+		//types.ASynSender(synsigner, nil)
+		for _, tx := range txs {
+			types.Deletesynsinger(synsigner, tx)
+		}
+	}(block.Transactions())
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles(), receipts)
 	iSender, ifindsynsender := types.GetSenderCount()
