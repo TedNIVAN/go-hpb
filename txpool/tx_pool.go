@@ -167,13 +167,13 @@ func (pool *TxPool) loop() {
 	defer pool.wg.Done()
 
 	// Start the stats reporting and transaction eviction tickers
-	var prevPending, prevQueued int
+	//var prevPending, prevQueued int
 
 	evict := time.NewTicker(evictionInterval)
 	defer evict.Stop()
 
-	report := time.NewTicker(statsReportInterval)
-	defer report.Stop()
+	//report := time.NewTicker(statsReportInterval)
+	//defer report.Stop()
 
 	evictTmpQueue := time.NewTicker(tmpQEvictionInterval)
 	defer evictTmpQueue.Stop()
@@ -194,15 +194,15 @@ func (pool *TxPool) loop() {
 				pool.mu.Unlock()
 			}
 			// Handle stats reporting ticks
-		case <-report.C:
-			//pool.mu.RLock()
-			pending, queued := pool.Stats()
-			//pool.mu.RUnlock()
-
-			if pending != prevPending || queued != prevQueued {
-				log.Debug("Transaction pool status report", "pending", pending, "queued", queued)
-				prevPending, prevQueued = pending, queued
-			}
+		//case <-report.C:
+		//	//pool.mu.RLock()
+		//	pending, queued := pool.Stats()
+		//	//pool.mu.RUnlock()
+		//
+		//	if pending != prevPending || queued != prevQueued {
+		//		log.Debug("Transaction pool status report", "pending", pending, "queued", queued)
+		//		prevPending, prevQueued = pending, queued
+		//	}
 			// Handle inactive account transaction eviction
 		case <-evict.C:
 			pool.mu.Lock()
@@ -1036,8 +1036,8 @@ func (a addresssByHeartbeat) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 // stats retrieves the current pool stats, namely the number of pending and the
 // number of queued (non-executable) transactions.
 func (pool *TxPool) Stats() (int, int) {
-	pool.mu.RLock()
-	defer pool.mu.RUnlock()
+	pool.mu.Lock()
+	defer pool.mu.Unlock()
 	pending := 0
 	for _, list := range pool.pending {
 		pending += list.Len()
