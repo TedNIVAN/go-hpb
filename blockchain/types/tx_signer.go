@@ -74,7 +74,7 @@ func SMapDelete(m *Smap, khash common.Hash) error {
 		log.Debug("SMapDelete err", "m.Data[khash]", kvalue)
 		return errors.New("SMapDelete err")
 	}
-	log.Debug(" SMapDelete OK", "khash", khash, "kvalue", kvalue)
+	log.Trace(" SMapDelete OK", "khash", khash, "kvalue", kvalue)
 	return nil
 }
 
@@ -87,7 +87,7 @@ func SMapGet(m *Smap, khash common.Hash) (common.Address, error) {
 		log.Debug("SMapGet hash values is null error", "m.Data[khash]", m.Data[khash])
 		return common.Address{}, errors.New("SMapGet hash values is null")
 	}
-	log.Debug(" SMapGet OK", "khash", khash, "kvalue", kvalue)
+	log.Trace(" SMapGet OK", "khash", khash, "kvalue", kvalue)
 	return kvalue, nil
 }
 
@@ -101,11 +101,11 @@ func SMapSet(m *Smap, khash common.Hash, kaddress common.Address) error {
 		log.Error("SMapSet hash values is null error", "from", from)
 		return errors.New("SMapSet hash values is null")
 	}
-	log.Debug("SMapSet ok", "SMapSet from", from)
+	log.Trace("SMapSet ok", "SMapSet from", from)
 	return nil
 }
 func Deletesynsinger(signer Signer, tx *Transaction) {
-	log.Debug("lenSigner", "len(synsigner)", len(Asynsinger.Data))
+	log.Trace("lenSigner", "len(synsigner)", len(Asynsinger.Data))
 	SMapDelete(Asynsinger, signer.Hash(tx))
 }
 
@@ -163,7 +163,7 @@ func Sender(signer Signer, tx *Transaction) (common.Address, error) {
 	if errSet != nil {
 		log.Info("Sender SMapSet error!")
 	}
-	log.Debug("Sender send ok", "tx.hash", tx.Hash(), "signer.Hash(tx)", signer.Hash(tx))
+	log.Trace("Sender send ok", "tx.hash", tx.Hash(), "signer.Hash(tx)", signer.Hash(tx))
 	return addr, nil
 }
 func ASynSender(signer Signer, tx *Transaction) (common.Address, error) {
@@ -365,7 +365,7 @@ func ASynrecoverPlain(sighash common.Hash, R, S, Vb *big.Int) (common.Address, e
 		log.Error("boe validatesign error")
 		return common.Address{}, err
 	}
-	log.Debug("ASynrecoverPlain Send to BOE OK", "sighash", sighash)
+	log.Trace("ASynrecoverPlain Send to BOE OK", "sighash", sighash)
 	return common.Address{}, ErrInvalidAsynsinger
 }
 
@@ -398,8 +398,8 @@ func boecallback(rs boe.RecoverPubkey, err error) {
 
 	errSet := SMapSet(Asynsinger, comhash, addr)
 	if errSet != nil {
-		log.Info("boecallback SMapSet error!")
+		log.Error("boecallback SMapSet error!")
 	}
-	log.Debug("boecallback boe rec singer data success", "comhash", comhash, "rs.hash", rs.Hash, "addr", addr)
+	log.Trace("boecallback boe rec singer data success", "comhash", comhash, "rs.hash", rs.Hash, "addr", addr)
 
 }
