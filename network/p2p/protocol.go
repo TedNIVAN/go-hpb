@@ -397,10 +397,10 @@ func (hp *HpbProto) proBondall(p *Peer) {
 		case bondnode := <-p.chbond:
 			btobond := true
 			bondnodeid := fmt.Sprintf("%x", bondnode.ID[:])
-			log.Info("node:", "bondinfo", bondnodeid)
+			//log.Trace("node:", "bondinfo", bondnodeid)
 			for _, node := range toBondNode {
 				tobondid := fmt.Sprintf("%x", node.ID[:])
-				log.Info("node:", "nodeinfo", tobondid)
+				//log.Trace("node:", "nodeinfo", tobondid)
 				if tobondid == bondnodeid {
 					btobond = false
 					break
