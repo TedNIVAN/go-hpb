@@ -136,7 +136,6 @@ type Peer struct {
 	td   *big.Int
 	lock sync.RWMutex
 
-	chbond      chan *discover.Node
 	knownTxs    *set.Set // Set of transaction hashes known to be known by this peer
 	knownBlocks *set.Set // Set of block hashes known to be known by this peer
 }
