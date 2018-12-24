@@ -678,8 +678,8 @@ func (srv *Server) SetupConn(fd net.Conn, flags connFlag, dialDest *discover.Nod
 		return
 	}
 
-	srv.setupLock.Lock()
-	defer  srv.setupLock.Unlock()
+	//srv.setupLock.Lock()
+	//defer srv.setupLock.Unlock()
 
 	// Run the encryption handshake.
 	var err error
