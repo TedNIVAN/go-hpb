@@ -483,7 +483,6 @@ func NewPeer(version uint, pr *PeerBase, rw MsgReadWriter) *Peer {
 		rw:          rw,
 		version:     version,
 		id:          fmt.Sprintf("%x", id[:8]),
-		chbond:      make(chan *discover.Node, 1),
 		knownTxs:    set.New(),
 		knownBlocks: set.New(),
 	}
