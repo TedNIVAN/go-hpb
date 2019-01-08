@@ -1083,8 +1083,8 @@ func (pool *TxPool) Pending() (map[common.Address]types.Transactions, error) {
 
 // State returns the virtual managed state of the transaction pool.
 func (pool *TxPool) State() *state.ManagedState {
-	pool.mu.RLock()
-	defer pool.mu.RUnlock()
+	pool.mu.Lock()
+	defer pool.mu.Unlock()
 
 	return pool.pendingState
 }
